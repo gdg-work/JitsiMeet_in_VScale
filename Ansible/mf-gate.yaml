@@ -1,0 +1,83 @@
+-   name: prepare a host to use as a gate for MinFin
+    hosts: mfgate
+
+
+    vars:
+        pkg_add:
+            - socat
+            - tmux
+            - bat
+            - ncat
+            - kitty-terminfo
+            - perl
+            - youtube-dl
+
+    tasks:
+        - name: read the variables
+          include_vars: vault.yaml
+
+        - name: update APT DB and upgrade installed packages
+          apt:
+              cache_valid_time: 600
+              upgrade: 'no'
+
+        - name: install packages
+          apt:
+              name: "{{pkg_add}}"
+              state: present
+
+        - name: create a group for 'dgolub' user
+          group:
+              name: "dgolub"
+              state: present
+
+        - name: create a group for 'dgolub' user
+          group:
+              name: "docker"
+              state: present
+
+        # create password with openssl passwd -5 -stdin <<< "your_password_here"
+        - name: create an user for me
+          user:
+              name:        "dgolub"
+              group:       "dgolub"
+              groups:      "sudo,users,docker"
+              shell:       "/bin/bash"
+              home:        "/home/dgolub"
+              create_home: yes
+              password:    "{{dgolub_passwd}}"
+              update_password: on_create
+              state:       present
+
+        - name: copy SSH key file to target machine
+          authorized_key:
+              user:       dgolub
+              manage_dir: yes
+              exclusive:  yes
+              key:        "{{dgolub_key}}"
+
+        - name: enable passwordless SUDO for dgolub
+          lineinfile:
+              path: /etc/sudoers.d/10_dgolub-user
+              create: yes
+              mode: 0600
+              state: present
+              line: 'dgolub ALL=(ALL) NOPASSWD: ALL'
+
+        - name: put TMUX config file to my user
+          template:
+              src:    Templates/tmux.conf
+              dest:   /home/dgolub/.tmux.conf
+              owner:  dgolub
+              group:  dgolub
+              mode:   0644
+              backup: no
+
+        - name: copy a script for running MinFin gate
+          template:
+              src: Templates/mf-relay8443.sh
+              dest: /home/dgolub/mf-relay8443.sh
+              owner: dgolub
+              group: dgolub
+              mode: 0755
+              backup: no

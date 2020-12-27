@@ -1,0 +1,5 @@
+Ansible/hosts
+Ansible/ssh_config.cfg
+Ansible/.vault_pass
+token.asc
+vscale.key

@@ -1,0 +1,43 @@
+-   name: install and minimally configure Docker engine
+    hosts: mfgate
+    
+    vars:
+        pkg_add:
+            - docker.io
+            - python3-virtualenv
+            - python3-setuptools
+            - python3-pip
+
+        dockerdir: /var/lib/docker
+
+    tasks:
+        - name: update APT DB and upgrade installed packages
+          apt:
+              cache_valid_time: 600
+              upgrade: 'no'
+
+        - name: install packages
+          apt:
+              name: "{{pkg_add}}"
+              state: present
+            
+        - name: install Docker package for Python
+          pip:
+              name: docker
+              state: present
+
+        - name: ensure permissions
+          file:
+              path: "{{ dockerdir }}"
+              state :  directory
+              owner: root
+              group: root
+              mode: 0711
+              recurse: no
+
+        - name: start Docker daemon
+          systemd:
+              name: docker
+              scope: system
+              enabled: yes
+              state: started
