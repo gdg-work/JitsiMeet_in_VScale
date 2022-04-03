@@ -1,6 +1,6 @@
+---
 -   name: prepare a host to use as a gate for MinFin
-    hosts: mfgate
-
+    hosts: jitsi
 
     vars:
         pkg_add:
@@ -10,16 +10,16 @@
             - ncat
             - kitty-terminfo
             - perl
-            - youtube-dl
+            - ddclient
+            - htop
+            - certbot
+            - git
 
     tasks:
         - name: read the variables
           include_vars: vault.yaml
 
-        - name: update APT DB and upgrade installed packages
-          apt:
-              cache_valid_time: 600
-              upgrade: 'no'
+          # APT update moved to separate playbook
 
         - name: install packages
           apt:
@@ -73,11 +73,11 @@
               mode:   0644
               backup: no
 
-        - name: copy a script for running MinFin gate
+        - name: create ddclient configuration
           template:
-              src: Templates/mf-relay8443.sh
-              dest: /home/dgolub/mf-relay8443.sh
-              owner: dgolub
-              group: dgolub
-              mode: 0755
-              backup: no
+              src: Templates/ddclient.conf
+              dest: /etc/ddclient.conf
+              owner: root
+              group: root
+              mode: 640
+              backup: yes

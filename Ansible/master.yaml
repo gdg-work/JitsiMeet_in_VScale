@@ -1,5 +1,5 @@
 ---
-
+- import_playbook: ubuntu.yaml
 - import_playbook: docker-create.yaml
-
-- import_playbook: mf-gate.yaml
+- import_playbook: packages.yaml
+- import_playbook: jitsi_with_docker.yaml

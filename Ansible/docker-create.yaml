@@ -1,5 +1,6 @@
+---
 -   name: install and minimally configure Docker engine
-    hosts: mfgate
+    hosts: jitsi
     
     vars:
         pkg_add:
@@ -7,6 +8,7 @@
             - python3-virtualenv
             - python3-setuptools
             - python3-pip
+            - docker-compose
 
         dockerdir: /var/lib/docker
 

@@ -1,0 +1,44 @@
+- name: install Jitsi Meet containers
+  hosts: jitsi
+  vars:
+      jitsi_hostname: "pigeons.mywire.org"
+      jitsi_cfg_dir: /home/dgolub/.jitsi-meet-cfg
+      create_dirs:
+          - web
+          - web/letsencrypt
+          - transcripts
+          - prosody
+          - prosody/config
+          - prosody/prosody-plugins-custom
+          - jicofo
+          - jvb
+          - jigasi
+          - jibri
+
+  tasks:
+      -   name: checkout stable release of Jitsi Meet
+          git:
+              repo: https://github.com/jitsi/docker-jitsi-meet
+              dest: /home/dgolub/docker-jitsi-meet
+              accept_hostkey: yes
+              update: no
+              depth: 8
+
+      -   name: create environment file
+          template:
+              src: Templates/jitsi_docker_env.template
+              dest: /home/dgolub/docker-jitsi-meet/.env
+              owner: dgolub
+              group: dgolub
+              mode: 0644
+              backup: yes
+
+      -   name: create some directories needed for docker-compose
+          file:
+              name: "{{ item }}"
+              state: directory
+              owner: dgolub
+              group: dgolub
+              mode: 0755
+          loop: "{{ create_dirs }}"
+

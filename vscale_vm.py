@@ -15,7 +15,7 @@ from os import environ
 
 VSCALE_API_URL="https://api.vscale.io/v1"
 SSH_KEY_FILE="/home/dgolub/.ssh/VScale.io/vscale.key"
-DEFAULT_HOSTNAME='jitsi-efDaiHeer'
+DEFAULT_HOSTNAME='jtsi-efDaiHeer'
 
 def o_get_logger(o_cfg) -> logging.Logger:
     "Configures the logger"
@@ -182,7 +182,7 @@ def i_create_host(poster, keyid, o_log, sc_name) -> int:
         'do_start' : True,
         'location' : 'msk0',
         'make_from': 'ubuntu_20.04_64_001_master',
-        'rplan'    : 'meduim',
+        'rplan'    : 'large',
         'keys'     : [ keyid ]
     }
     r = poster(API_PATH, params)
@@ -240,7 +240,7 @@ def rm_host_byid(remover, id, logger):
 
 def make_hosts_file(o_cfg):
     """Creates Ansible hosts file"""
-    GROUP_NAME='mfgate'
+    GROUP_NAME='jitsi'
     TEMPLATE="\n".join(["# Automatically generated file",
         '[{0}]', '{1}', ''])
     hf = TEMPLATE.format(GROUP_NAME, o_cfg.hostname)
@@ -261,20 +261,6 @@ def make_ssh_config(o_host):
     with open(ssh_config_file_name, "w") as f_out:
         f_out.write(CFG_TEMPLATE.format(
           o_host.name, o_host.ip, SSH_KEY_FILE,
-        ))
-    return
-
-def make_docker_env_file(ip):
-    """Crestes a source file for Shell with environment variable and key inclusion"""
-    CFG_TEMPLATE="""
-    echo "# You need to source this file by . (dot) operator or by 'source' command"
-    ssh-add -t 1h {0}
-    export DOCKER_HOST='ssh://dgolub@{1}'
-    """
-    source_file_name="Docker/docker.env"
-    with open(source_file_name, 'w') as f_out:
-        f_out.write(CFG_TEMPLATE.format(
-            SSH_KEY_FILE, ip
         ))
     return
 
@@ -316,7 +302,6 @@ def main_task(o_cfg):
         o_cfg.logger.debug(f"Host {host_num} is activated!")
         _make_ansible_config(o_cfg)
         o_host = get_host_info_byid(getter,host_num,o_cfg.logger)
-        _make_docker_config(o_host.ip)
         return
 
     def _make_ansible_config(o_cfg):
@@ -324,10 +309,6 @@ def main_task(o_cfg):
         gw_hosts = find_hosts(getter, o_cfg.logger, name=o_cfg.hostname)
         if gw_hosts:
             make_ssh_config(gw_hosts[0])
-        return
-
-    def _make_docker_config(o_cfg):
-        make_docker_env_file(o_cfg)
         return
 
     hostname=o_cfg.hostname
