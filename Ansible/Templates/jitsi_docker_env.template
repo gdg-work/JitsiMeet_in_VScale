@@ -78,13 +78,13 @@ ENABLE_NOISY_MIC_DETECTION=0
 ENABLE_LETSENCRYPT=1
 
 # Domain for which to generate the certificate
-LETSENCRYPT_DOMAIN=pigeons.mywire.org
+LETSENCRYPT_DOMAIN={{dyndns_host}}.{{dyndns_domain}}
 
 # E-Mail for receiving important account notifications (mandatory)
-LETSENCRYPT_EMAIL=d.g.golub@gmail.com
+LETSENCRYPT_EMAIL={{dyndns_email}}
 
 # Use the staging server (for avoiding rate limits while testing)
-LETSENCRYPT_USE_STAGING=0
+LETSENCRYPT_USE_STAGING=1
 
 
 #

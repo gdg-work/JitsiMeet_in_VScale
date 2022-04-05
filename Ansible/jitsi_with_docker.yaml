@@ -2,6 +2,11 @@
   hosts: jitsi
   vars:
       jitsi_hostname: "pigeons.mywire.org"
+      # this must be a tag corresponding to 'stable' version of Docker-Jitsi-Meet (https://github.com/jitsi/docker-jitsi-meet/)
+      docker_jitsi_meet_version: "stable-7001"
+      remote_home_dir: "/home/dgolub"  # No trailing slash, please
+      djm_dir: "{{ remote_home_dir }}/docker-jitsi-meet"
+      djm: "docker-jitsi-meet"
       jitsi_cfg_dir: /home/dgolub/.jitsi-meet-cfg
       create_dirs:
           - web
@@ -16,10 +21,17 @@
           - jibri
 
   tasks:
+      -   name: read the variables from vault
+          include_vars: vault.yaml
+
+      -   name: include the open variables
+          include_vars: global_vars.yaml
+
       -   name: checkout stable release of Jitsi Meet
           git:
               repo: https://github.com/jitsi/docker-jitsi-meet
-              dest: /home/dgolub/docker-jitsi-meet
+              dest: "{{ djm_dir }}"
+              version: "{{ docker_jitsi_meet_version }}"
               accept_hostkey: yes
               update: no
               depth: 8
@@ -27,7 +39,7 @@
       -   name: create environment file
           template:
               src: Templates/jitsi_docker_env.template
-              dest: /home/dgolub/docker-jitsi-meet/.env
+              dest: "{{ djm_dir }}/.env"
               owner: dgolub
               group: dgolub
               mode: 0644
@@ -35,10 +47,17 @@
 
       -   name: create some directories needed for docker-compose
           file:
-              name: "{{ item }}"
+              path: "{{ djm_dir }}/{{ item }}"
               state: directory
               owner: dgolub
               group: dgolub
               mode: 0755
           loop: "{{ create_dirs }}"
 
+      # CAUTION this code is not idempotent !!! Please run only once
+      -   name: run Docker-compose and containers
+          become: true
+          become_user: dgolub
+          shell:
+            chdir: "{{ djm_dir }}"
+            cmd: "docker-compose up -d"

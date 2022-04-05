@@ -16,8 +16,11 @@
             - git
 
     tasks:
-        - name: read the variables
+        - name: read the variables from vault
           include_vars: vault.yaml
+
+        - name: include the open variables
+          include_vars: global_vars.yaml
 
           # APT update moved to separate playbook
 

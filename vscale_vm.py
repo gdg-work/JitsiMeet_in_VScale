@@ -10,11 +10,12 @@ import argparse
 import sys
 import re
 import time
-from collections import namedtuple
-from os import environ
+from   collections import namedtuple
+from   typing import Optional
+from   os import environ
 
 VSCALE_API_URL="https://api.vscale.io/v1"
-SSH_KEY_FILE="/home/dgolub/.ssh/VScale.io/vscale.key"
+SSH_KEY_FILE="../vscale.key"    # Absolute path or path relative to 'Ansible' directory
 DEFAULT_HOSTNAME='jtsi-efDaiHeer'
 
 def o_get_logger(o_cfg) -> logging.Logger:
@@ -44,8 +45,12 @@ def o_parse_cli():
     return aparser.parse_args(l_all_opts)
 
 
-def s_read_token(o_cfg: "configuration namespace", logger: "logger instance") -> str:
-    "reads a token from file, returns it as a string or '' if an error occurs"
+def s_read_token(o_cfg, logger: logging.Logger) -> str:
+    """Reads an API authentication token from file
+    Parameters: 1) Configuration namespace from argparse
+                2) logger object
+    Returns: returns token as a string or '' if an error occurs
+    """
     VALID_TOKEN_RE=re.compile(r'[0-9a-f]{64}', re.IGNORECASE)
     s_token = ''
     try:
@@ -64,7 +69,7 @@ def s_read_token(o_cfg: "configuration namespace", logger: "logger instance") ->
 def requests_factory(api_base: str,s_token: str, o_log: logging.Logger) -> tuple:
     """Creates requests functions with partially filled parameters.
     Parameters: 0) API base URL, 1) security token, 2) logger object
-    Returns: a dict of functions ('get', 'post', 'put', 'delete')
+    Returns: a tuple of functions ('get', 'post', 'delete')
     """
     headers = {'Content-Type':'application/json', 'X-Token': s_token}
     timeout = 60
@@ -137,10 +142,10 @@ def requests_factory(api_base: str,s_token: str, o_log: logging.Logger) -> tuple
 # class definition
 Scalet = namedtuple('Scalet', 'id name ip state fqdn')
 
-def _fill_scalet_struct(js: "Dictionary from JavaScript") -> Scalet:
+
+def _fill_scalet_struct(js: "JSON object from API") -> Scalet:
     """Creates a host description from VScale-provided JSON.
-    Parameters:
-    1) JSON host description like:
+    Parameters: 1) JSON host description like:
         {'ctid': 1673289, 'name': 'mf-gate-01', 'status': 'deleted',
         'location': 'msk0', 'rplan': 'medium', 'keys': [], 'tags': [],
         'public_address': {}, 'private_address': {},
@@ -149,9 +154,9 @@ def _fill_scalet_struct(js: "Dictionary from JavaScript") -> Scalet:
         'active': False, 'locked': True,
         'deleted': '2020-05-21 10:51:32', 'block_reason': None,
         'block_reason_custom': None, 'date_block': None}
-    Returns: Scalet structure with minimal host information
+    Returns: Scalet structure with minimal host information filled
     """
-    needed_fields = {'ctid', 'name', 'public_address', 'state', 'hostname'}
+    # needed_fields = {'ctid', 'name', 'public_address', 'state', 'hostname'}
     return Scalet(
         id    = js['ctid'],
         name  = js['name'],
@@ -165,17 +170,23 @@ def l_list_hosts(getter) -> list:
     r = getter('/scalets', params={})
     if r:
         return [ _fill_scalet_struct(h) for h in r ]
+    return []
 
 def get_key_id(getter) -> int:
     "returns my SSH public key ID"
     r = getter('/sshkeys', params={})
     if r:
     	return r[0]['id']
-    # else returns None
+    return 0
 
 def i_create_host(poster, keyid, o_log, sc_name) -> int:
     """Creates a host, returns host ID
-    XXX params?"""
+    Parameters: 1) function for API 'post' call
+                2) SSH key ID
+                3) logger object
+                4) Scalet (VM) name
+    Returns: ID of created scalet as an integer
+    """
     API_PATH = '/scalets'
     params = {
         'name'     : sc_name,
@@ -189,17 +200,30 @@ def i_create_host(poster, keyid, o_log, sc_name) -> int:
     o_log.debug(str(r))
     return (r['ctid'])
 
-def get_host_info_byid(getter, id, logger) -> Scalet:
-    "returns a host information by given ID"
+def get_host_info_byid(getter, id, logger) -> Optional[Scalet]:
+    """returns a host information by given ID
+    Parameters: 1) Getter function,
+                2) Host ID
+                3) logger function
+    Returns: Scalet structure or None if any error occurs
+    """
     API_PATH = '/scalets' + '/' + str(id)
     js = getter(API_PATH, params={})
     if not js:
+        logger.debug("get_host_info_byid: Getter returned no value")
         return None
     logger.debug('JSON from vscale: {}'.format(str(js)))
     return _fill_scalet_struct(js)
 
-def find_hosts(getter, logger, ctid=0, name='', ip='') -> Scalet:
-    """Поиск  хостов по одному из признаков: имени, IP, идентификатору"""
+def find_hosts(getter, logger, ctid=0, name='', ip='') -> list[Scalet]:
+    """ Search hosts by some parameter.
+    Parameters: 1) Getter function
+                2) logger function
+                3) id of host for search
+                4) name of host for search
+                5) IP address of host to search
+    Returns: list of found hosts or [] 
+    """
 
     def _b_match_host(sc, id, name, ip):
         return (sc.id == id or
@@ -208,14 +232,24 @@ def find_hosts(getter, logger, ctid=0, name='', ip='') -> Scalet:
 
     all_hosts = l_list_hosts(getter)
     if not all_hosts:   # empty list?
+        logger.info("find_hosts: Empty list of hosts returned")
         return []
-    return [h for h in all_hosts if _b_match_host(h, id, name, ip)]
+    return [h for h in all_hosts if _b_match_host(h, ctid, name, ip)]
 
 def wait_host_boot(getter, logger, id, attempts=10, interval=10):
-    """Waits until state of the host will be 'active'"""
+    """Waits until state of the host will be 'active'
+    Parameters:  1) Getter function
+                 2) logger function
+                 3) ID of host to wait for
+                 4) # of attempts to get information about the host
+                 5) Interval of these attempts
+    """
     while attempts > 0:
         attempts -= 1
         hi = get_host_info_byid(getter, id, logger)
+        if hi is None:
+            logger.error(f"Cannot receive host info for ID {id}")
+            return
         if hi.state == 'started':
             logger.info(f'VM id: {id}, active')
             break
@@ -233,13 +267,15 @@ def wait_host_boot(getter, logger, id, attempts=10, interval=10):
     return
 
 def rm_host_byid(remover, id, logger):
-    "removes a host by IP"
+    "removes a host by ID"
     API_PATH = '/scalets' + '/' + str(id)
     js = remover(API_PATH, params={})
     return js
 
 def make_hosts_file(o_cfg):
-    """Creates Ansible hosts file"""
+    """Creates Ansible hosts file
+    Parameters: 1) configuration object with needed parameters (only 'hostname' field is used)
+    """
     GROUP_NAME='jitsi'
     TEMPLATE="\n".join(["# Automatically generated file",
         '[{0}]', '{1}', ''])
@@ -248,6 +284,9 @@ def make_hosts_file(o_cfg):
         f_out.write(hf)
 
 def make_ssh_config(o_host):
+    """Create SSH config for a created host
+    Parameters: 1) Host record. Fields 'name' and 'ip' are used for templating
+    """
     CFG_TEMPLATE="""
     host = {0}
         HostName = {1}
@@ -267,6 +306,7 @@ def make_ssh_config(o_host):
 def main_task(o_cfg):
     """
     Main function of the program
+    Parameters: o_cfg: configuration object from argparse
     """
     (getter, poster, remover) = requests_factory(VSCALE_API_URL, o_cfg.auth_token, o_cfg.logger)
 
@@ -311,7 +351,7 @@ def main_task(o_cfg):
             make_ssh_config(gw_hosts[0])
         return
 
-    hostname=o_cfg.hostname
+    # hostname=o_cfg.hostname
     act2fun = {'create': _create_scalet, 'list': _list_scalets, 'info': _get_info, 'delete': _del_by_name}
     act2fun[o_cfg.action](o_cfg)
     return

@@ -1,6 +1,3 @@
-[submodule "docker-jitsi-meet"]
-	path = docker-jitsi-meet
-	url = ./Docker/docker-jitsi-meet
 [submodule "Docker/docker-jitsi-meet"]
 	path = Docker/docker-jitsi-meet
 	url = https://github.com/jitsi/docker-jitsi-meet

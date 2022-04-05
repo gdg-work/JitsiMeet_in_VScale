@@ -13,6 +13,12 @@
         dockerdir: /var/lib/docker
 
     tasks:
+        - name: read the variables from vault
+          include_vars: vault.yaml
+
+        - name: include the open variables
+          include_vars: global_vars.yaml
+
         - name: update APT DB and upgrade installed packages
           apt:
               cache_valid_time: 600
